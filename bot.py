@@ -8,6 +8,7 @@ import urllib.request
 import json
 import pytz
 import platform
+import time
 
 from services.background import keep_alive
 from handlers import (register_handler_base,
@@ -31,6 +32,31 @@ async def load_timezone_map(file_path):
         print(f"Timezone mapping file not found: {file_path}")
     return timezone_map
 
+async def set_timezone_windows(timezone_map, timezone):
+    windows_timezone = timezone_map.get(timezone)
+    if windows_timezone:
+        current_timezone = subprocess.check_output(["tzutil", "/g"]).decode().strip()
+        if current_timezone != windows_timezone:
+            subprocess.call(["tzutil", "/s", windows_timezone])
+            print(f"Updating time zone to {windows_timezone}")
+        else:
+            print("Not updating time zone")
+
+        # Set the timezone using pytz
+        tz = pytz.timezone(timezone)
+        os.environ['TZ'] = tz.zone
+    else:
+        print(f"No mapping found for timezone: {timezone}")
+
+async def set_timezone_unix(timezone):
+    if timezone:
+        os.environ['TZ'] = timezone
+        if hasattr(time, 'tzset'):
+            time.tzset()
+        print(f"Setting time zone to {timezone}")
+    else:
+        print(f"No mapping found for timezone: {timezone}")
+
 async def set_timezone(timezone_map):
     try:
         url = "http://ip-api.com/json/?fields=timezone"
@@ -38,32 +64,10 @@ async def set_timezone(timezone_map):
         data = json.loads(response.read().decode())
         timezone = data["timezone"]
 
-        windows_timezone = timezone_map.get(timezone)
-
         if platform.system() == "Windows":
-            if windows_timezone:
-                current_timezone = subprocess.check_output(["tzutil", "/g"]).decode().strip()
-
-                if current_timezone != windows_timezone:
-                    subprocess.call(["tzutil", "/s", windows_timezone])
-                    print(f"Updating time zone to {windows_timezone}")
-                else:
-                    print("Not updating time zone")
-
-                # Set the timezone using pytz
-                tz = pytz.timezone(timezone)
-                os.environ['TZ'] = tz.zone
-            else:
-                print(f"No mapping found for timezone: {timezone}")
+            await set_timezone_windows(timezone_map, timezone)
         else:
-            # For Unix-based systems
-            if timezone:
-                os.environ['TZ'] = timezone
-                if hasattr(time, 'tzset'):
-                    time.tzset()
-                print(f"Setting time zone to {timezone}")
-            else:
-                print(f"No mapping found for timezone: {timezone}")
+            await set_timezone_unix(timezone)
 
     except Exception as e:
         print(f"Error setting timezone: {str(e)}")
