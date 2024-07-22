@@ -1,11 +1,12 @@
 import json
 from .connecting import obj
 
-
 def load_tokens_auth():
-    with open('config/tokens.json', 'r') as file:
-        data = json.load(file)
-
-    if data != {}:
-        obj.xsrf = data['xsrf']
-        obj.hhtoken = data['hhtoken']
+    xsrf = os.getenv('xsrf')
+    hhtoken = os.getenv('hhtoken')
+    
+    if xsrf and hhtoken:
+        obj.xsrf = xsrf
+        obj.hhtoken = hhtoken
+    else:
+        print("Tokens not found in environment variables.")
