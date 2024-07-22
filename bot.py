@@ -84,7 +84,7 @@ async def main():
     timezone_map = await load_timezone_map('timezone_map.txt')
     await set_timezone(timezone_map)
 
-    # Remove webhook before starting polling
+    # Remove webhook before starting polling to avoid conflicts
     await bot.delete_webhook()
 
     proxy = Config.proxy
